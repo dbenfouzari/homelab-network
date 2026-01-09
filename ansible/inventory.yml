@@ -6,6 +6,17 @@
 # Structure:
 #   - proxmox_nodes: Les 3 nodes du cluster Proxmox
 #   - (futurs groupes: opnsense, docker_hosts, k3s_nodes, etc.)
+#
+# Architecture réseau physique:
+#   pve-host-1:
+#     - eno1 → Livebox direct (WAN dédié)
+#     - enx6c6e07140884 → Switch port 2 (LAN)
+#   pve-host-2:
+#     - eno1 → Switch port 3
+#     - enx6c6e07140861 → Switch port 4 (LAN)
+#   pve-host-3:
+#     - eno1 → Switch port 5
+#     - enx6c6e07140869 → Switch port 6 (LAN)
 
 all:
   children:
@@ -16,26 +27,43 @@ all:
       hosts:
         pve-host-1:
           ansible_host: 192.168.2.101
-          wan_interface: eno1              # Interface WAN (vers Livebox)
-          lan_interface: enx6c6e07140884   # Interface LAN (vers switch Zyxel)
+          ansible_ssh_pass: "{{ lookup('env', 'PVE_HOST_1_PASSWORD') }}"
+          # Config spéciale: WAN direct sur Livebox
+          primary_interface: eno1          # Branché sur Livebox (WAN)
+          secondary_interface: enx6c6e07140884  # Branché sur Switch port 2
+          has_wan_direct: true
 
         pve-host-2:
           ansible_host: 192.168.2.102
-          wan_interface: eno1
-          lan_interface: enx6c6e07140861   # USB Ethernet unique à ce node
+          ansible_ssh_pass: "{{ lookup('env', 'PVE_HOST_2_PASSWORD') }}"
+          # Tout sur le switch
+          primary_interface: eno1          # Branché sur Switch port 3
+          secondary_interface: enx6c6e07140861  # Branché sur Switch port 4
+          has_wan_direct: false
 
         pve-host-3:
           ansible_host: 192.168.2.103
-          wan_interface: eno1
-          lan_interface: enx6c6e07140869   # USB Ethernet unique à ce node
+          ansible_ssh_pass: "{{ lookup('env', 'PVE_HOST_3_PASSWORD') }}"
+          # Tout sur le switch
+          primary_interface: eno1          # Branché sur Switch port 5
+          secondary_interface: enx6c6e07140869  # Branché sur Switch port 6
+          has_wan_direct: false
 
       # Variables communes à tous les nodes Proxmox
       vars:
         ansible_user: root
         ansible_python_interpreter: /usr/bin/python3
 
-        # Configuration réseau commune
-        wan_bridge: vmbr0
-        lan_bridge: vmbr1
-        wan_gateway: 192.168.2.1
-        wan_network: 192.168.2.0/24
+        # Authentification SSH
+        # Note: Les mots de passe sont définis par host ci-dessus
+        # Si vous avez des clés SSH configurées, décommentez la ligne suivante
+        # pour forcer l'utilisation du mot de passe
+        # ansible_ssh_common_args: '-o PreferredAuthentications=password -o PubkeyAuthentication=no'
+
+        # Configuration bridges
+        management_bridge: vmbr0
+        vlan_bridge: vmbr1
+
+        # Réseau legacy (Livebox)
+        legacy_network: 192.168.2.0/24
+        legacy_gateway: 192.168.2.1

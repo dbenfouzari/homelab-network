@@ -61,18 +61,19 @@ output: ## Afficher les outputs Terraform
 
 ##@ Ansible
 
-ansible-check: ## Vérifier la syntaxe Ansible
-	@echo "$(CYAN)→ Vérification de la syntaxe Ansible...$(NC)"
-	ansible-playbook -i $(INVENTORY) $(ANSIBLE_DIR)/playbooks/site.yml --syntax-check
-	@echo "$(GREEN)✓ Syntaxe valide$(NC)"
+ansible-test: ## Tester la connectivité SSH aux nodes Proxmox
+	@echo "$(CYAN)→ Test de connectivité SSH aux nodes Proxmox...$(NC)"
+	@$(LOAD_ENV) ansible proxmox_nodes -i $(INVENTORY) -m ping
+	@echo "$(GREEN)✓ Tous les nodes sont accessibles$(NC)"
 
 ansible-inventory: ## Afficher l'inventaire Ansible
 	@echo "$(CYAN)→ Inventaire Ansible:$(NC)"
-	ansible-inventory -i $(INVENTORY) --list
+	@ansible-inventory -i $(INVENTORY) --list --yaml
 
-ansible-ping: ## Tester la connectivité aux hosts
-	@echo "$(CYAN)→ Test de connectivité...$(NC)"
-	ansible all -i $(INVENTORY) -m ping
+ansible-check: ## Vérifier la syntaxe Ansible
+	@echo "$(CYAN)→ Vérification de la syntaxe Ansible...$(NC)"
+	@ansible-playbook -i $(INVENTORY) $(ANSIBLE_DIR)/playbooks/site.yml --syntax-check
+	@echo "$(GREEN)✓ Syntaxe valide$(NC)"
 
 ansible-deploy: ## Déployer avec Ansible (tous les services)
 	@echo "$(CYAN)→ Déploiement complet...$(NC)"
