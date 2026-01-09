@@ -1,0 +1,41 @@
+# ============================================================================
+# ANSIBLE INVENTORY - HOMELAB
+# ============================================================================
+# Liste tous les équipements gérés par Ansible
+#
+# Structure:
+#   - proxmox_nodes: Les 3 nodes du cluster Proxmox
+#   - (futurs groupes: opnsense, docker_hosts, k3s_nodes, etc.)
+
+all:
+  children:
+    # ========================================================================
+    # PROXMOX CLUSTER
+    # ========================================================================
+    proxmox_nodes:
+      hosts:
+        pve-host-1:
+          ansible_host: 192.168.2.101
+          wan_interface: eno1              # Interface WAN (vers Livebox)
+          lan_interface: enx6c6e07140884   # Interface LAN (vers switch Zyxel)
+
+        pve-host-2:
+          ansible_host: 192.168.2.102
+          wan_interface: eno1
+          lan_interface: enx6c6e07140861   # USB Ethernet unique à ce node
+
+        pve-host-3:
+          ansible_host: 192.168.2.103
+          wan_interface: eno1
+          lan_interface: enx6c6e07140869   # USB Ethernet unique à ce node
+
+      # Variables communes à tous les nodes Proxmox
+      vars:
+        ansible_user: root
+        ansible_python_interpreter: /usr/bin/python3
+
+        # Configuration réseau commune
+        wan_bridge: vmbr0
+        lan_bridge: vmbr1
+        wan_gateway: 192.168.2.1
+        wan_network: 192.168.2.0/24

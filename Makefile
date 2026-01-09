@@ -3,7 +3,7 @@
 # Variables
 TF_DIR := terraform/core
 ANSIBLE_DIR := ansible
-INVENTORY := $(ANSIBLE_DIR)/inventory/production.yml
+INVENTORY := $(ANSIBLE_DIR)/inventory.yml
 
 # Couleurs pour l'affichage
 CYAN := \033[0;36m
@@ -11,6 +11,9 @@ GREEN := \033[0;32m
 YELLOW := \033[1;33m
 RED := \033[0;31m
 NC := \033[0m # No Color
+
+# Script pour charger les variables d'environnement
+LOAD_ENV := source scripts/load-env.sh &&
 
 ##@ Aide
 
@@ -33,18 +36,18 @@ init: ## Initialiser Terraform
 
 plan: ## Planifier les changements Terraform
 	@echo "$(CYAN)→ Planification Terraform...$(NC)"
-	cd $(TF_DIR) && terraform plan
+	@$(LOAD_ENV) cd $(TF_DIR) && terraform plan
 	@echo "$(GREEN)✓ Plan généré$(NC)"
 
 apply: ## Appliquer les changements Terraform
 	@echo "$(YELLOW)⚠️  Cette commande va créer/modifier l'infrastructure$(NC)"
 	@echo "$(CYAN)→ Application des changements...$(NC)"
-	cd $(TF_DIR) && terraform apply
+	@$(LOAD_ENV) cd $(TF_DIR) && terraform apply
 	@echo "$(GREEN)✓ Infrastructure déployée$(NC)"
 
 apply-auto: ## Appliquer sans confirmation (DANGER)
 	@echo "$(RED)⚠️  Application automatique (sans confirmation)$(NC)"
-	cd $(TF_DIR) && terraform apply -auto-approve
+	@$(LOAD_ENV) cd $(TF_DIR) && terraform apply -auto-approve
 
 destroy: ## Détruire l'infrastructure (DANGER)
 	@echo "$(RED)⚠️  Cette commande va SUPPRIMER toute l'infrastructure$(NC)"

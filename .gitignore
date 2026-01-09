@@ -3,7 +3,6 @@
 *.tfstate
 *.tfstate.*
 *.tfvars
-!terraform.tfvars.example
 crash.log
 override.tf
 override.tf.json
@@ -22,6 +21,7 @@ secrets/
 *.pem
 .env
 .env.*
+!.env.example
 
 # Backups (local only, not versioned)
 backups/*
