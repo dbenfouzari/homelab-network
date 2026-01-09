@@ -1,0 +1,210 @@
+---
+# ============================================================================
+# PLAYBOOK PRINCIPAL - HOMELAB INFRASTRUCTURE
+# ============================================================================
+# Ce playbook orchestre le déploiement complet de l'infrastructure homelab
+#
+# Usage:
+#   ansible-playbook -i inventory/production.yml playbooks/site.yml
+#   ansible-playbook -i inventory/production.yml playbooks/site.yml --tags "critical"
+#   ansible-playbook -i inventory/production.yml playbooks/site.yml --limit "dns"
+
+- name: "PHASE 0: Vérifications préalables"
+  hosts: localhost
+  gather_facts: false
+  tags: [always, checks]
+  tasks:
+    - name: Vérifier la présence de l'inventaire
+      ansible.builtin.assert:
+        that:
+          - groups['firewall'] is defined
+          - groups['proxmox_hosts'] is defined
+        fail_msg: "Inventaire invalide ou incomplet"
+        success_msg: "Inventaire chargé avec succès"
+
+    - name: Afficher le résumé de l'infrastructure
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          HOMELAB INFRASTRUCTURE DEPLOYMENT
+          ========================================
+          Firewall: {{ groups['firewall'] | length }} host(s)
+          DNS: {{ groups['dns'] | default([]) | length }} host(s)
+          Apps: {{ groups['apps'] | default([]) | length }} host(s)
+          Media: {{ groups['media'] | default([]) | length }} host(s)
+          ========================================
+
+# ============================================================================
+# PHASE 1: INFRASTRUCTURE CRITIQUE
+# ============================================================================
+
+- name: "PHASE 1: Configuration OPNsense (manuel)"
+  hosts: firewall
+  gather_facts: false
+  tags: [firewall, critical, opnsense]
+  tasks:
+    - name: Information - Configuration OPNsense
+      ansible.builtin.debug:
+        msg: |
+          ================================================
+          OPNSENSE CONFIGURATION (MANUEL)
+          ================================================
+
+          OPNsense doit être configuré manuellement via:
+          1. Installation depuis ISO (déjà fait)
+          2. Configuration initiale via console Proxmox
+          3. Configuration avancée via Web UI (https://192.168.2.254)
+
+          Configuration actuelle:
+          - LAN: 192.168.2.254/24 (temporaire)
+          - WAN: DHCP depuis Livebox
+          - Web UI: https://192.168.2.254
+
+          Prochaines étapes:
+          - Installer plugin WireGuard
+          - Configurer les règles firewall
+          - Créer les interfaces VLAN (10, 20, 30, 40)
+
+          Documentation complète:
+          ~/Workspace/network/docs/migration-logs/phase-1-vpn/
+          ================================================
+
+    - name: Vérifier la connectivité OPNsense
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: 443
+        timeout: 10
+      delegate_to: localhost
+      ignore_errors: true
+      register: opnsense_check
+
+    - name: Résultat de la vérification
+      ansible.builtin.debug:
+        msg: |
+          {% if opnsense_check.failed %}
+          ⚠️  OPNsense Web UI non accessible sur https://{{ ansible_host }}
+          Vérifier que la VM est démarrée et configurée.
+          {% else %}
+          ✅ OPNsense Web UI accessible sur https://{{ ansible_host }}
+          {% endif %}
+
+# ============================================================================
+# PHASE 2: SERVICES RÉSEAU
+# ============================================================================
+
+- name: "PHASE 2: Déploiement AdGuard Home"
+  hosts: dns
+  gather_facts: true
+  tags: [dns, network-services]
+  roles:
+    - role: common
+      tags: [common]
+    - role: docker
+      tags: [docker]
+    - role: adguard
+      tags: [adguard]
+
+# ============================================================================
+# PHASE 3: SERVICES APPLICATIFS
+# ============================================================================
+
+- name: "PHASE 3: Déploiement des services applicatifs"
+  hosts: apps
+  gather_facts: true
+  tags: [apps]
+  roles:
+    - role: common
+      tags: [common]
+    - role: docker
+      tags: [docker]
+
+- name: "PHASE 3.1: Déploiement n8n"
+  hosts: n8n
+  gather_facts: false
+  tags: [apps, n8n]
+  roles:
+    - role: n8n
+
+- name: "PHASE 3.2: Déploiement Dolibarr"
+  hosts: dolibarr
+  gather_facts: false
+  tags: [apps, dolibarr]
+  roles:
+    - role: dolibarr
+
+- name: "PHASE 3.3: Déploiement Immich"
+  hosts: immich
+  gather_facts: false
+  tags: [apps, immich]
+  roles:
+    - role: immich
+
+# ============================================================================
+# PHASE 4: SERVICES MÉDIA
+# ============================================================================
+
+- name: "PHASE 4: Déploiement des services média"
+  hosts: media
+  gather_facts: true
+  tags: [media]
+  roles:
+    - role: common
+      tags: [common]
+    - role: docker
+      tags: [docker]
+
+- name: "PHASE 4.1: Déploiement Plex"
+  hosts: plex
+  gather_facts: false
+  tags: [media, plex]
+  roles:
+    - role: plex
+
+- name: "PHASE 4.2: Déploiement Radarr"
+  hosts: radarr
+  gather_facts: false
+  tags: [media, radarr]
+  roles:
+    - role: radarr
+
+- name: "PHASE 4.3: Déploiement Sonarr"
+  hosts: sonarr
+  gather_facts: false
+  tags: [media, sonarr]
+  roles:
+    - role: sonarr
+
+# ============================================================================
+# PHASE 5: VÉRIFICATIONS POST-DÉPLOIEMENT
+# ============================================================================
+
+- name: "PHASE 5: Vérifications finales"
+  hosts: localhost
+  gather_facts: false
+  tags: [always, verify]
+  tasks:
+    - name: Résumé du déploiement
+      ansible.builtin.debug:
+        msg: |
+          ================================================
+          DÉPLOIEMENT TERMINÉ
+          ================================================
+
+          Services déployés:
+          - OPNsense: https://192.168.2.254
+          - AdGuard Home: http://192.168.10.2 (après migration VLAN)
+          - n8n: http://192.168.10.10:5678
+          - Dolibarr: http://192.168.10.11
+          - Immich: http://192.168.10.12:2283
+          - Plex: http://192.168.10.20:32400/web
+          - Radarr: http://192.168.10.21:7878
+          - Sonarr: http://192.168.10.22:8989
+
+          Prochaines étapes:
+          1. Finaliser la configuration OPNsense
+          2. Migrer vers les VLANs (10, 20, 30, 40)
+          3. Restaurer les données des services (backups)
+          4. Configurer le monitoring
+
+          Documentation: ~/Workspace/homelab/homelab-iac/docs/
+          ================================================

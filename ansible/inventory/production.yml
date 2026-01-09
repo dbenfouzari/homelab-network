@@ -1,0 +1,119 @@
+---
+# ============================================================================
+# HOMELAB PRODUCTION INVENTORY
+# ============================================================================
+
+all:
+  vars:
+    ansible_user: root
+    ansible_python_interpreter: /usr/bin/python3
+
+  children:
+    # ========================================================================
+    # INFRASTRUCTURE CRITIQUE
+    # ========================================================================
+    firewall:
+      hosts:
+        opnsense:
+          ansible_host: 192.168.2.254
+          ansible_connection: local  # OPNsense se configure via WebUI/API
+          vm_id: 100
+          proxmox_node: pve-host-1
+          role: gateway
+          description: "Firewall/Router principal - VPN WireGuard"
+
+    # ========================================================================
+    # SERVICES RÉSEAU
+    # ========================================================================
+    dns:
+      hosts:
+        adguard:
+          ansible_host: 192.168.10.2  # Futur, après migration VLAN
+          ansible_connection: ssh
+          container_id: 200
+          proxmox_node: pve-host-2
+          role: dns
+          description: "AdGuard Home - DNS filtré par VLAN"
+
+    # ========================================================================
+    # SERVICES APPLICATIFS
+    # ========================================================================
+    apps:
+      hosts:
+        n8n:
+          ansible_host: 192.168.10.10
+          ansible_connection: ssh
+          container_id: 210
+          proxmox_node: pve-host-2
+          role: automation
+          description: "n8n - Workflows et automatisations"
+
+        dolibarr:
+          ansible_host: 192.168.10.11
+          ansible_connection: ssh
+          container_id: 211
+          proxmox_node: pve-host-2
+          role: erp
+          description: "Dolibarr - ERP/CRM"
+
+        immich:
+          ansible_host: 192.168.10.12
+          ansible_connection: ssh
+          container_id: 212
+          proxmox_node: pve-host-3
+          role: photos
+          description: "Immich - Gestion de photos"
+
+    # ========================================================================
+    # SERVICES MÉDIA
+    # ========================================================================
+    media:
+      hosts:
+        plex:
+          ansible_host: 192.168.10.20
+          ansible_connection: ssh
+          container_id: 220
+          proxmox_node: pve-host-3
+          role: media-server
+          description: "Plex Media Server"
+
+        radarr:
+          ansible_host: 192.168.10.21
+          ansible_connection: ssh
+          container_id: 221
+          proxmox_node: pve-host-3
+          role: media-manager
+          description: "Radarr - Gestion films"
+
+        sonarr:
+          ansible_host: 192.168.10.22
+          ansible_connection: ssh
+          container_id: 222
+          proxmox_node: pve-host-3
+          role: media-manager
+          description: "Sonarr - Gestion séries"
+
+    # ========================================================================
+    # GROUPES LOGIQUES
+    # ========================================================================
+    proxmox_hosts:
+      hosts:
+        pve-host-1:
+          ansible_host: 192.168.2.101
+        pve-host-2:
+          ansible_host: 192.168.2.102
+        pve-host-3:
+          ansible_host: 192.168.2.103
+
+    # Containers LXC (pour faciliter les opérations groupées)
+    lxc_containers:
+      children:
+        - dns
+        - apps
+        - media
+
+    # Services Docker (pour les services qui utilisent Docker)
+    docker_services:
+      children:
+        - apps
+        - media

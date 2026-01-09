@@ -1,0 +1,53 @@
+# ============================================================================
+# TERRAFORM VARIABLES - EXAMPLE
+# ============================================================================
+# Copier ce fichier vers terraform.tfvars et remplir avec vos valeurs
+# ATTENTION: terraform.tfvars est dans .gitignore - NE PAS commit les mots de passe
+#
+# Usage:
+#   cp terraform.tfvars.example terraform.tfvars
+#   vim terraform.tfvars  # Éditer avec vos vraies valeurs
+
+# ============================================================================
+# PROXMOX AUTHENTICATION
+# ============================================================================
+
+# Mots de passe Proxmox par node
+proxmox_passwords = {
+  pve1 = "votre_mot_de_passe_node_1"
+  pve2 = "votre_mot_de_passe_node_2"
+  pve3 = "votre_mot_de_passe_node_3"
+}
+
+# Utilisateur Proxmox (par défaut: root@pam)
+# proxmox_user = "root@pam"
+
+# ============================================================================
+# NETWORK CONFIGURATION (Optionnel - utilise les valeurs par défaut)
+# ============================================================================
+
+# Serveurs DNS legacy (avant migration VLAN)
+# dns_servers = {
+#   legacy = ["192.168.2.1", "1.1.1.1"]
+#   future = ["192.168.10.2", "192.168.2.1"]
+# }
+
+# ============================================================================
+# SSH KEYS (Optionnel - pour les containers LXC)
+# ============================================================================
+
+# Vos clés SSH publiques pour accès aux containers
+# ssh_keys = [
+#   "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC... votre_cle_publique_1",
+#   "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... votre_cle_publique_2"
+# ]
+
+# ============================================================================
+# NOTES
+# ============================================================================
+
+# Alternative: Variables d'environnement
+# Vous pouvez aussi utiliser des variables d'environnement:
+#   export TF_VAR_proxmox_passwords='{"pve1":"pass1","pve2":"pass2","pve3":"pass3"}'
+#
+# Vérifier avec: make check-passwords
