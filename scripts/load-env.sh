@@ -24,27 +24,25 @@ source .env
 set +a
 
 # Vérifier que les variables requises sont définies
+# Passwords pour Ansible
 if [ -z "$PVE_HOST_1_PASSWORD" ] || [ -z "$PVE_HOST_2_PASSWORD" ] || [ -z "$PVE_HOST_3_PASSWORD" ]; then
-    echo "❌ Variables manquantes dans .env"
-    echo "→ Les variables suivantes sont requises:"
+    echo "❌ Variables de mots de passe manquantes dans .env"
+    echo "→ Les variables suivantes sont requises pour Ansible:"
     echo "   - PVE_HOST_1_PASSWORD"
     echo "   - PVE_HOST_2_PASSWORD"
     echo "   - PVE_HOST_3_PASSWORD"
     exit 1
 fi
 
-# Construire la variable TF_VAR_proxmox_passwords avec proper escaping
-# Utilisation de jq pour construire le JSON correctement
-export TF_VAR_proxmox_passwords=$(jq -n \
-    --arg pve1 "$PVE_HOST_1_PASSWORD" \
-    --arg pve2 "$PVE_HOST_2_PASSWORD" \
-    --arg pve3 "$PVE_HOST_3_PASSWORD" \
-    '{pve1: $pve1, pve2: $pve2, pve3: $pve3}')
-
-# Vérifier que le JSON a été créé correctement
-if [ -z "$TF_VAR_proxmox_passwords" ]; then
-    echo "❌ Échec de la création de la variable TF_VAR_proxmox_passwords"
+# API Token pour Terraform
+if [ -z "$PVE_API_TOKEN" ]; then
+    echo "❌ Variable PVE_API_TOKEN manquante dans .env"
+    echo "→ Créez un token API dans Datacenter > Permissions > API Tokens"
+    echo "   Format: root@pam!terraform=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
     exit 1
 fi
+
+# Exporter le token API pour Terraform
+export TF_VAR_proxmox_api_token="$PVE_API_TOKEN"
 
 echo "✓ Variables d'environnement chargées"

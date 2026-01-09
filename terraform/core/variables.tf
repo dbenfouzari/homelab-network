@@ -12,15 +12,8 @@ variable "proxmox_api_urls" {
   }
 }
 
-variable "proxmox_user" {
-  description = "Utilisateur Proxmox"
+variable "proxmox_api_token" {
+  description = "API Token Proxmox (format: user@realm!tokenid=secret)"
   type        = string
-  default     = "root@pam"
-  sensitive   = true
-}
-
-variable "proxmox_passwords" {
-  description = "Mots de passe Proxmox par node"
-  type        = map(string)
   sensitive   = true
 }

@@ -203,12 +203,6 @@ variable "hotplug" {
 # CLOUD-INIT (optionnel)
 # ============================================================================
 
-variable "cloudinit_cdrom_storage" {
-  description = "Storage pour le CD-ROM cloud-init"
-  type        = string
-  default     = null
-}
-
 variable "ciuser" {
   description = "Utilisateur cloud-init"
   type        = string

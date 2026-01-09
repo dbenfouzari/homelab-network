@@ -4,7 +4,7 @@ terraform {
   required_providers {
     proxmox = {
       source  = "telmate/proxmox"
-      version = "~> 2.9"
+      version = "3.0.2-rc07"
     }
   }
 }
@@ -13,10 +13,10 @@ terraform {
 provider "proxmox" {
   alias = "pve1"
 
-  pm_api_url      = var.proxmox_api_urls["pve1"]
-  pm_user         = var.proxmox_user
-  pm_password     = var.proxmox_passwords["pve1"]
-  pm_tls_insecure = true  # Certificat auto-signé
+  pm_api_url          = var.proxmox_api_urls["pve1"]
+  pm_api_token_id     = split("=", var.proxmox_api_token)[0]  # user@realm!tokenid
+  pm_api_token_secret = split("=", var.proxmox_api_token)[1]  # secret
+  pm_tls_insecure     = true  # Certificat auto-signé
 
   pm_log_enable = true
   pm_log_file   = "terraform-plugin-proxmox-pve1.log"
@@ -30,10 +30,10 @@ provider "proxmox" {
 provider "proxmox" {
   alias = "pve2"
 
-  pm_api_url      = var.proxmox_api_urls["pve2"]
-  pm_user         = var.proxmox_user
-  pm_password     = var.proxmox_passwords["pve2"]
-  pm_tls_insecure = true
+  pm_api_url          = var.proxmox_api_urls["pve2"]
+  pm_api_token_id     = split("=", var.proxmox_api_token)[0]  # user@realm!tokenid
+  pm_api_token_secret = split("=", var.proxmox_api_token)[1]  # secret
+  pm_tls_insecure     = true
 
   pm_log_enable = true
   pm_log_file   = "terraform-plugin-proxmox-pve2.log"
@@ -47,10 +47,10 @@ provider "proxmox" {
 provider "proxmox" {
   alias = "pve3"
 
-  pm_api_url      = var.proxmox_api_urls["pve3"]
-  pm_user         = var.proxmox_user
-  pm_password     = var.proxmox_passwords["pve3"]
-  pm_tls_insecure = true
+  pm_api_url          = var.proxmox_api_urls["pve3"]
+  pm_api_token_id     = split("=", var.proxmox_api_token)[0]  # user@realm!tokenid
+  pm_api_token_secret = split("=", var.proxmox_api_token)[1]  # secret
+  pm_tls_insecure     = true
 
   pm_log_enable = true
   pm_log_file   = "terraform-plugin-proxmox-pve3.log"
