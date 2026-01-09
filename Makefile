@@ -68,11 +68,10 @@ ansible-test: ## Tester la connectivité SSH aux nodes Proxmox
 
 setup-proxmox: ## Configure les bridges réseau VLAN-aware sur les nodes Proxmox
 	@echo "$(CYAN)→ Configuration des bridges réseau Proxmox...$(NC)"
-	@echo "$(YELLOW)⚠️  Cette commande va modifier /etc/network/interfaces sur les nodes$(NC)"
+	@echo "$(YELLOW)⚠️  Cette commande va modifier /etc/network/interfaces et redémarrer le réseau$(NC)"
 	@read -p "Continuer? [y/N] " confirm && [ "$$confirm" = "y" ] || exit 1
 	@$(LOAD_ENV) ansible-playbook -i $(INVENTORY) $(ANSIBLE_DIR)/playbooks/proxmox-network-setup.yml
-	@echo "$(GREEN)✓ Configuration terminée$(NC)"
-	@echo "$(YELLOW)→ Note: Vous devez redémarrer le réseau ou reboot les nodes pour appliquer les changements$(NC)"
+	@echo "$(GREEN)✓ Configuration terminée et réseau rechargé$(NC)"
 
 ansible-inventory: ## Afficher l'inventaire Ansible
 	@echo "$(CYAN)→ Inventaire Ansible:$(NC)"

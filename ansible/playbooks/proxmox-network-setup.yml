@@ -47,7 +47,7 @@
     - name: Backup current network configuration
       ansible.builtin.copy:
         src: /etc/network/interfaces
-        dest: "/etc/network/interfaces.backup.{{ ansible_date_time.epoch }}"
+        dest: "/etc/network/interfaces.backup.{{ ansible_facts['date_time']['epoch'] }}"
         remote_src: yes
         mode: '0644'
       tags: [backup]
@@ -56,41 +56,117 @@
     # CONFIGURE VLAN-AWARE BRIDGE (vmbr1)
     # ========================================================================
 
-    - name: Check if vmbr1 exists in /etc/network/interfaces
-      ansible.builtin.command: grep -q "^auto vmbr1" /etc/network/interfaces
-      register: vmbr1_exists
+    - name: Check for old Ansible markers
+      ansible.builtin.command: grep -q "BEGIN ANSIBLE MANAGED BLOCK - vmbr1" /etc/network/interfaces
+      register: has_old_markers
       changed_when: false
       failed_when: false
       tags: [configure]
 
-    - name: Configure vmbr1 as VLAN-aware bridge
+    - name: Remove old BEGIN marker
+      ansible.builtin.lineinfile:
+        path: /etc/network/interfaces
+        regexp: '^# BEGIN ANSIBLE MANAGED BLOCK - vmbr1 VLAN bridge'
+        state: absent
+      when: has_old_markers.rc == 0
+      tags: [configure]
+
+    - name: Replace old header comment with new one
+      ansible.builtin.lineinfile:
+        path: /etc/network/interfaces
+        regexp: '^# VLAN-aware bridge for VMs \(managed by Ansible\)$'
+        line: '# VLAN-aware bridge for VMs (managed by Ansible)'
+        insertbefore: '^auto {{ vlan_bridge }}'
+      when: has_old_markers.rc == 0
+      tags: [configure]
+
+    - name: Replace old END marker with new one
+      ansible.builtin.replace:
+        path: /etc/network/interfaces
+        regexp: '^# END ANSIBLE MANAGED BLOCK - vmbr1 VLAN bridge'
+        replace: '# LAN interface'
+      when: has_old_markers.rc == 0
+      tags: [configure]
+
+    - name: Read current network configuration
+      ansible.builtin.slurp:
+        src: /etc/network/interfaces
+      register: interfaces_file
+      tags: [configure]
+
+    - name: Parse interfaces file
+      ansible.builtin.set_fact:
+        interfaces_content: "{{ interfaces_file.content | b64decode }}"
+      tags: [configure]
+
+    - name: Check if vmbr1 block exists
+      ansible.builtin.set_fact:
+        vmbr1_exists: "{{ interfaces_content | regex_search('auto ' + vlan_bridge) is not none }}"
+      tags: [configure]
+
+    - name: Check if vmbr1 is already VLAN-aware
+      ansible.builtin.set_fact:
+        vmbr1_is_vlan_aware: "{{ interfaces_content | regex_search('bridge-vlan-aware\\s+yes') is not none }}"
+      tags: [configure]
+
+    - name: Configure new vmbr1 as VLAN-aware bridge
       ansible.builtin.blockinfile:
         path: /etc/network/interfaces
-        marker: "# {mark} ANSIBLE MANAGED BLOCK - vmbr1 VLAN bridge"
+        marker: "# {mark} VLAN-aware bridge for VMs (managed by Ansible)"
+        marker_begin: ""
+        marker_end: "LAN interface"
         block: |
-          # VLAN-aware bridge for VMs (managed by Ansible)
           auto {{ vlan_bridge }}
           iface {{ vlan_bridge }} inet manual
-              bridge-ports {{ secondary_interface }}
-              bridge-stp off
-              bridge-fd 0
-              bridge-vlan-aware yes
-              bridge-vids 2-4094
+          	bridge-ports {{ secondary_interface }}
+          	bridge-stp off
+          	bridge-fd 0
+          	bridge-vlan-aware yes
+          	bridge-vids 2-4094
         insertafter: EOF
-      when: vmbr1_exists.rc != 0
+      when: not vmbr1_exists
       notify: Reload networking
       tags: [configure]
 
-    - name: Update existing vmbr1 to be VLAN-aware
+    - name: Update existing vmbr1 configuration - ensure VLAN-aware
+      ansible.builtin.replace:
+        path: /etc/network/interfaces
+        after: "^auto {{ vlan_bridge }}"
+        before: "^(auto|iface|source|#|$)"
+        regexp: "^(\\s*bridge-vlan-aware\\s+).*"
+        replace: "\\1yes"
+      when: vmbr1_exists and vmbr1_is_vlan_aware
+      notify: Reload networking
+      tags: [configure]
+
+    - name: Add bridge-vlan-aware to existing vmbr1
       ansible.builtin.lineinfile:
         path: /etc/network/interfaces
-        regexp: "{{ item.regexp }}"
-        line: "{{ item.line }}"
-        insertafter: "^iface {{ vlan_bridge }}"
-      loop:
-        - { regexp: '^\s*bridge-vlan-aware', line: '    bridge-vlan-aware yes' }
-        - { regexp: '^\s*bridge-vids', line: '    bridge-vids 2-4094' }
-      when: vmbr1_exists.rc == 0
+        line: "\tbridge-vlan-aware yes"
+        insertafter: "^iface {{ vlan_bridge }} inet manual"
+        firstmatch: yes
+      when: vmbr1_exists and not vmbr1_is_vlan_aware
+      notify: Reload networking
+      tags: [configure]
+
+    - name: Update existing vmbr1 configuration - ensure bridge-vids
+      ansible.builtin.replace:
+        path: /etc/network/interfaces
+        after: "^auto {{ vlan_bridge }}"
+        before: "^(auto|iface|source|#|$)"
+        regexp: "^(\\s*bridge-vids\\s+).*"
+        replace: "\\12-4094"
+      when: vmbr1_exists
+      notify: Reload networking
+      tags: [configure]
+
+    - name: Add bridge-vids to existing vmbr1
+      ansible.builtin.lineinfile:
+        path: /etc/network/interfaces
+        line: "\tbridge-vids 2-4094"
+        insertafter: "^iface {{ vlan_bridge }} inet manual"
+        firstmatch: yes
+      when: vmbr1_exists
       notify: Reload networking
       tags: [configure]
 
@@ -100,17 +176,18 @@
 
     - name: Verify vmbr1 configuration
       ansible.builtin.command: cat /etc/network/interfaces
-      register: interfaces_content
+      register: interfaces_content_verify
       changed_when: false
       tags: [verify]
 
     - name: Check that vmbr1 is VLAN-aware
       ansible.builtin.assert:
         that:
-          - "'bridge-vlan-aware yes' in interfaces_content.stdout"
+          - "'bridge-vlan-aware yes' in interfaces_content_verify.stdout"
         fail_msg: "vmbr1 is not configured as VLAN-aware"
         success_msg: "vmbr1 is correctly configured as VLAN-aware"
       tags: [verify]
+      when: not ansible_check_mode  # Skip verification in check mode
 
   # ==========================================================================
   # HANDLERS
@@ -126,7 +203,9 @@
           # Option 2: Restart complet du service (peut couper brièvement)
           systemctl restart networking
         fi
-      tags: [never]  # Ne s'exécute que si explicitement appelé
+      async: 10
+      poll: 0
+      # async/poll pour éviter que Ansible attende pendant le restart réseau
 
     - name: Display configuration result
       ansible.builtin.debug:
