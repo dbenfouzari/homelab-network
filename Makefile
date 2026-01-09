@@ -29,34 +29,24 @@ init: ## Initialiser Terraform
 	cd $(TF_DIR) && terraform init
 	@echo "$(GREEN)✓ Terraform initialisé$(NC)"
 
-check-passwords: ## Vérifier que les mots de passe sont configurés
-	@if [ -z "$$TF_VAR_proxmox_passwords" ]; then \
-		echo "$(RED)✗ TF_VAR_proxmox_passwords non défini$(NC)"; \
-		echo "$(YELLOW)Configurez les mots de passe:$(NC)"; \
-		echo "  export TF_VAR_proxmox_passwords='{\"pve1\":\"pass1\",\"pve2\":\"pass2\",\"pve3\":\"pass3\"}'"; \
-		echo "$(YELLOW)Ou créez terraform/core/terraform.tfvars (à ne PAS commit)$(NC)"; \
-		exit 1; \
-	fi
-	@echo "$(GREEN)✓ Variables d'environnement configurées$(NC)"
-
 ##@ Terraform
 
-plan: check-passwords ## Planifier les changements Terraform
+plan: ## Planifier les changements Terraform
 	@echo "$(CYAN)→ Planification Terraform...$(NC)"
 	cd $(TF_DIR) && terraform plan
 	@echo "$(GREEN)✓ Plan généré$(NC)"
 
-apply: check-passwords ## Appliquer les changements Terraform
+apply: ## Appliquer les changements Terraform
 	@echo "$(YELLOW)⚠️  Cette commande va créer/modifier l'infrastructure$(NC)"
 	@echo "$(CYAN)→ Application des changements...$(NC)"
 	cd $(TF_DIR) && terraform apply
 	@echo "$(GREEN)✓ Infrastructure déployée$(NC)"
 
-apply-auto: check-passwords ## Appliquer sans confirmation (DANGER)
+apply-auto: ## Appliquer sans confirmation (DANGER)
 	@echo "$(RED)⚠️  Application automatique (sans confirmation)$(NC)"
 	cd $(TF_DIR) && terraform apply -auto-approve
 
-destroy: check-passwords ## Détruire l'infrastructure (DANGER)
+destroy: ## Détruire l'infrastructure (DANGER)
 	@echo "$(RED)⚠️  Cette commande va SUPPRIMER toute l'infrastructure$(NC)"
 	cd $(TF_DIR) && terraform destroy
 
