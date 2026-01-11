@@ -45,6 +45,7 @@ resource "proxmox_vm_qemu" "vm" {
     }
   }
 
+  boot    = var.boot
   agent   = var.agent
   bios    = var.bios
   machine = var.machine
@@ -93,13 +94,25 @@ resource "proxmox_vm_qemu" "vm" {
   # ============================================================================
 
   disks {
-    # ISO pour installation (ide2 par convention)
+    # ISO pour installation (ide2 par convention) - seulement si pas de clone
     dynamic "ide" {
-      for_each = var.iso != null ? [1] : []
+      for_each = var.iso != null && var.clone == null ? [1] : []
       content {
         ide2 {
           cdrom {
             iso = var.iso
+          }
+        }
+      }
+    }
+
+    # CloudInit drive (ide2) - seulement pour les VMs clonées avec cloud-init
+    dynamic "ide" {
+      for_each = var.clone != null && (var.ciuser != null || var.cipassword != null) ? [1] : []
+      content {
+        ide2 {
+          cloudinit {
+            storage = var.disk.storage
           }
         }
       }
@@ -170,7 +183,7 @@ resource "proxmox_vm_qemu" "vm" {
     ignore_changes = [
       # Ignorer les changements faits manuellement via l'UI Proxmox
       network,
-      disks,
+      # Note: on ne peut pas ignorer 'disks' car ça empêche le cloud-init de se configurer
       clone,
     ]
   }

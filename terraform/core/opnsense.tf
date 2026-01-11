@@ -104,7 +104,7 @@ module "opnsense" {
     size    = "16G"        # 16GB (OPNsense recommande 8GB minimum)
     format  = "raw"
     cache   = "writethrough"  # Meilleure durabilité pour firewall critique
-    iothread = true          # Performance I/O
+    iothread = false         # Désactivé (pas compatible avec SCSI LSI)
     ssd     = true           # Optimisations SSD si applicable
     discard = true           # TRIM/discard pour SSD
   }
