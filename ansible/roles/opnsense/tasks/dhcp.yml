@@ -1,0 +1,7 @@
+---
+# Configuration DHCP sur OPNsense
+# TODO: À implémenter après les tests initiaux
+
+- name: Placeholder - DHCP configuration
+  ansible.builtin.debug:
+    msg: "Configuration DHCP à implémenter"

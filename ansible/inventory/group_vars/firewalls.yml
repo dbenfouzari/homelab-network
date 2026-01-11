@@ -1,0 +1,59 @@
+---
+# Variables communes pour tous les firewalls (OPNsense)
+
+# Configuration réseau actuelle
+network:
+  lan:
+    interface: vtnet0
+    ip: 192.168.2.254
+    subnet: 24
+    network: 192.168.2.0/24
+  wan:
+    interface: vtnet1
+    type: dhcp  # IP dynamique via DHCP
+
+# Configuration WireGuard VPN - Accès personnel au homelab
+wireguard_vpn:
+  name: "VPN-Server"  # Nom du serveur dans OPNsense
+  description: "VPN personnel pour accès distant au homelab"
+  enabled: true
+  port: 51820
+  network: 10.10.10.0/24  # Réseau VPN
+  server_ip: 10.10.10.1   # IP d'OPNsense sur le VPN
+  mtu: 1420               # MTU pour éviter la fragmentation
+  dns: 192.168.2.1        # DNS via réseau LAN (gateway upstream)
+  keepalive: 25           # Keepalive en secondes
+
+  # Routes accessibles via le VPN
+  # Pour l'instant uniquement le LAN principal (192.168.2.0/24)
+  # Les VLANs (10.0.0.0/24, 10.10.0.0/24, etc.) seront ajoutés plus tard
+  allowed_networks:
+    - 192.168.2.0/24      # LAN principal (accès management + services)
+
+  # Peers WireGuard (clients VPN)
+  # Pour ajouter un nouveau peer:
+  # 1. Générer une paire de clés sur le client: wg genkey | tee privatekey | wg pubkey > publickey
+  # 2. Ajouter le peer ci-dessous avec la clé publique
+  # 3. Lancer: make wireguard
+  # 4. Configurer le client avec la clé privée et la config générée
+  peers:
+    - name: "iPhone-Donovan"
+      enabled: true
+      public_key: "kBcPW91feBF/F5vna3cb9zJWLof7k+W9ubXPY06z42k="
+      allowed_ips: "10.10.10.2/32"
+      keepalive: 25
+      psk: "J+yK2QbTzruyZy+KrfBFmwrDbYB91Su0ltMTmX8jv6s="  # Pre-Shared Key pour sécurité renforcée
+
+# Configuration backup
+backup:
+  enabled: true
+  # Backup dans le repo Git (versionné)
+  git_backup: true
+  backup_dir: "{{ playbook_dir }}/../backups/opnsense"
+
+  # Backup additionnel vers NFS (optionnel)
+  nfs_backup: true
+  nfs_mount: "/mnt/pve-backups/opnsense"  # Sous-dossier de votre NFS existant
+
+  retention_days: 30
+  schedule: "0 2 * * *"  # Tous les jours à 2h du matin

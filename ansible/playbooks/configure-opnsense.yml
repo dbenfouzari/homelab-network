@@ -1,0 +1,22 @@
+---
+# Playbook principal de configuration OPNsense
+#
+# Usage:
+#   ansible-playbook -i inventory/opnsense.yml playbooks/configure-opnsense.yml
+#
+# Test de connexion uniquement:
+#   ansible-playbook -i inventory/opnsense.yml playbooks/configure-opnsense.yml --tags=never
+#
+# Backup uniquement:
+#   ansible-playbook -i inventory/opnsense.yml playbooks/configure-opnsense.yml --tags=backup
+
+- name: Configuration OPNsense
+  hosts: opnsense
+  gather_facts: false
+
+  # Les variables sont chargées depuis l'inventaire
+  # qui utilise lookup('env', 'VARIABLE_NAME')
+  # Charger les variables avec: source scripts/load-env.sh
+
+  roles:
+    - opnsense

@@ -1,0 +1,74 @@
+---
+# Gestion d'un peer WireGuard individuel
+# Ce fichier est appelé en boucle pour chaque peer défini dans la configuration
+
+- name: "Vérifier si le peer {{ peer.name }} existe déjà"
+  ansible.builtin.set_fact:
+    existing_peer: "{{ wireguard_peers_list.json.rows | default([]) | selectattr('name', 'equalto', peer.name) | list | first | default(none) }}"
+  tags: [wireguard]
+
+- name: "Créer le peer {{ peer.name }}"
+  ansible.builtin.uri:
+    url: "{{ opnsense_url }}/api/wireguard/client/addClient"
+    method: POST
+    url_username: "{{ opnsense_api_key }}"
+    url_password: "{{ opnsense_api_secret }}"
+    force_basic_auth: yes
+    validate_certs: "{{ opnsense_verify_ssl }}"
+    body_format: json
+    body:
+      client:
+        enabled: "{{ '1' if peer.enabled | default(true) else '0' }}"
+        name: "{{ peer.name }}"
+        pubkey: "{{ peer.public_key }}"
+        tunneladdress: "{{ peer.allowed_ips }}"
+        serveraddress: ""
+        serverport: ""
+        serverpubkey: ""
+        psk: "{{ peer.psk | default('') }}"  # Utiliser le PSK de la config si fourni
+        keepalive: "{{ peer.keepalive | default(wireguard_vpn.keepalive) }}"
+    return_content: yes
+    status_code: [200, 201]
+  register: peer_create_result
+  when: existing_peer is none
+  changed_when: peer_create_result.status in [200, 201]
+  tags: [wireguard]
+
+- name: "Mettre à jour le peer {{ peer.name }}"
+  ansible.builtin.uri:
+    url: "{{ opnsense_url }}/api/wireguard/client/setClient/{{ existing_peer.uuid }}"
+    method: POST
+    url_username: "{{ opnsense_api_key }}"
+    url_password: "{{ opnsense_api_secret }}"
+    force_basic_auth: yes
+    validate_certs: "{{ opnsense_verify_ssl }}"
+    body_format: json
+    body:
+      client:
+        enabled: "{{ '1' if peer.enabled | default(true) else '0' }}"
+        name: "{{ peer.name }}"
+        pubkey: "{{ peer.public_key }}"
+        tunneladdress: "{{ peer.allowed_ips }}"
+        serveraddress: ""
+        serverport: ""
+        serverpubkey: ""
+        psk: "{{ peer.psk | default(existing_peer.psk | default('')) }}"  # Utiliser le PSK de la config ou préserver l'existant
+        keepalive: "{{ peer.keepalive | default(wireguard_vpn.keepalive) }}"
+    return_content: yes
+    status_code: [200]
+  register: peer_update_result
+  when: existing_peer is not none
+  changed_when: peer_update_result.status == 200
+  tags: [wireguard]
+
+- name: "Afficher le résultat pour {{ peer.name }}"
+  ansible.builtin.debug:
+    msg: |
+      {% if peer_create_result is defined and peer_create_result.changed %}
+      ✅ Peer '{{ peer.name }}' créé ({{ peer.allowed_ips }})
+      {% elif peer_update_result is defined and peer_update_result.changed %}
+      ✅ Peer '{{ peer.name }}' mis à jour ({{ peer.allowed_ips }})
+      {% else %}
+      ℹ️  Peer '{{ peer.name }}' déjà à jour ({{ peer.allowed_ips }})
+      {% endif %}
+  tags: [wireguard]

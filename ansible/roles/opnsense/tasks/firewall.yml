@@ -1,0 +1,7 @@
+---
+# Configuration des règles firewall OPNsense
+# TODO: À implémenter après les tests initiaux
+
+- name: Placeholder - Firewall rules
+  ansible.builtin.debug:
+    msg: "Configuration firewall à implémenter"

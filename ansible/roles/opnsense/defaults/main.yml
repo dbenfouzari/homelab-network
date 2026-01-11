@@ -1,0 +1,6 @@
+---
+# Variables par défaut du rôle OPNsense
+# IMPORTANT: Ne définir ici que les variables nécessaires aux conditions
+# Les valeurs complètes sont dans group_vars/firewalls.yml
+#
+# Ansible merge les dictionnaires, donc on ne définit que le minimum ici

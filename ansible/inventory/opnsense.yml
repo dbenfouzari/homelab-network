@@ -1,0 +1,23 @@
+---
+# Inventaire OPNsense
+# Ce fichier définit l'hôte OPNsense pour Ansible
+
+all:
+  children:
+    firewalls:
+      hosts:
+        opnsense:
+          ansible_host: 192.168.2.254  # IP actuelle de votre OPNsense
+          ansible_connection: local     # Connexion via API (pas SSH)
+          ansible_python_interpreter: /usr/bin/python3
+
+          # Configuration API OPNsense
+          opnsense_url: "https://192.168.2.254"
+          opnsense_api_key: "{{ lookup('env', 'OPNSENSE_API_KEY') }}"
+          opnsense_api_secret: "{{ lookup('env', 'OPNSENSE_API_SECRET') }}"
+          opnsense_verify_ssl: false  # Certificat auto-signé
+
+          # Informations réseau (CORRIGÉ)
+          lan_interface: vtnet0  # LAN sur vtnet0
+          wan_interface: vtnet1  # WAN sur vtnet1
+          wan_gateway: 192.168.2.1  # Livebox

@@ -42,6 +42,13 @@ if [ -z "$PVE_API_TOKEN" ]; then
     exit 1
 fi
 
+# API Keys OPNsense (optionnel - requis uniquement pour Ansible OPNsense)
+if [ -n "$OPNSENSE_API_KEY" ] && [ -n "$OPNSENSE_API_SECRET" ]; then
+    export OPNSENSE_API_KEY
+    export OPNSENSE_API_SECRET
+    echo "✓ Credentials OPNsense chargés"
+fi
+
 # Exporter le token API pour Terraform
 export TF_VAR_proxmox_api_token="$PVE_API_TOKEN"
 

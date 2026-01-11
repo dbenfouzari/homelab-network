@@ -1,0 +1,7 @@
+---
+# Configuration DNS (Unbound) sur OPNsense
+# TODO: À implémenter après les tests initiaux
+
+- name: Placeholder - DNS configuration
+  ansible.builtin.debug:
+    msg: "Configuration DNS à implémenter"

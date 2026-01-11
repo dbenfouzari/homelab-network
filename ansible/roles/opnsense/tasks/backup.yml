@@ -1,0 +1,58 @@
+---
+# Backup de la configuration OPNsense
+
+- name: Créer le répertoire de backup
+  ansible.builtin.file:
+    path: "{{ backup.backup_dir }}"
+    state: directory
+    mode: '0755'
+  delegate_to: localhost
+  when: backup.git_backup | default(true)
+  tags: [backup, always]
+
+- name: Récupérer la configuration OPNsense
+  ansible.builtin.uri:
+    url: "{{ opnsense_url }}/api/core/backup/download/this"
+    method: GET
+    url_username: "{{ opnsense_api_key }}"
+    url_password: "{{ opnsense_api_secret }}"
+    force_basic_auth: yes
+    validate_certs: "{{ opnsense_verify_ssl }}"
+    dest: "{{ backup.backup_dir }}/config-{{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}.xml"
+    return_content: no
+  delegate_to: localhost
+  register: backup_result
+  tags: [backup, always]
+
+- name: Créer un lien symbolique vers le dernier backup
+  ansible.builtin.file:
+    src: "{{ backup_result.path }}"
+    dest: "{{ backup.backup_dir }}/config-latest.xml"
+    state: link
+    force: yes
+  delegate_to: localhost
+  when: backup_result is succeeded
+  tags: [backup, always]
+
+- name: Nettoyer les anciens backups
+  ansible.builtin.find:
+    paths: "{{ backup.backup_dir }}"
+    patterns: "config-*.xml"
+    age: "{{ backup.retention_days }}d"
+  register: old_backups
+  delegate_to: localhost
+  tags: [backup, always]
+
+- name: Supprimer les backups expirés
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ old_backups.files }}"
+  delegate_to: localhost
+  when: old_backups.matched > 0
+  tags: [backup, always]
+
+- name: Afficher le résultat du backup
+  ansible.builtin.debug:
+    msg: "Backup sauvegardé dans {{ backup_result.path }}"
+  tags: [backup, always]

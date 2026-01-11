@@ -1,0 +1,45 @@
+---
+# Point d'entrée principal du rôle OPNsense
+# Ce fichier orchestre l'exécution des différentes tâches
+
+- name: Vérifier la connexion à OPNsense
+  ansible.builtin.uri:
+    url: "{{ opnsense_url }}/api/core/firmware/status"
+    method: GET
+    url_username: "{{ opnsense_api_key }}"
+    url_password: "{{ opnsense_api_secret }}"
+    force_basic_auth: yes
+    validate_certs: "{{ opnsense_verify_ssl }}"
+  register: opnsense_status
+  changed_when: false
+
+- name: Afficher la version OPNsense
+  ansible.builtin.debug:
+    msg: "OPNsense {{ opnsense_status.json.product_version }} connecté avec succès"
+
+- name: Backup de la configuration actuelle
+  ansible.builtin.include_tasks: backup.yml
+  when: backup.enabled | default(true)
+  tags:
+    - backup
+
+- name: Configuration WireGuard VPN
+  ansible.builtin.include_tasks: wireguard.yml
+  tags:
+    - wireguard
+    - vpn
+
+- name: Configuration des règles firewall
+  ansible.builtin.include_tasks: firewall.yml
+  tags:
+    - firewall
+
+- name: Configuration DNS (Unbound)
+  ansible.builtin.include_tasks: dns.yml
+  tags:
+    - dns
+
+- name: Configuration DHCP
+  ansible.builtin.include_tasks: dhcp.yml
+  tags:
+    - dhcp

@@ -1,0 +1,233 @@
+---
+# Configuration WireGuard VPN sur OPNsense
+# WireGuard est intégré nativement dans OPNsense (pas de plugin nécessaire)
+#
+# Cette automatisation gère le serveur WireGuard et les peers via l'API
+
+- name: Récupérer la configuration WireGuard actuelle
+  ansible.builtin.uri:
+    url: "{{ opnsense_url }}/api/wireguard/server/searchServer"
+    method: GET
+    url_username: "{{ opnsense_api_key }}"
+    url_password: "{{ opnsense_api_secret }}"
+    force_basic_auth: yes
+    validate_certs: "{{ opnsense_verify_ssl }}"
+    return_content: yes
+  register: wireguard_servers_list
+  tags: [wireguard]
+
+- name: Vérifier si le serveur WireGuard existe déjà
+  ansible.builtin.set_fact:
+    existing_wg_server: "{{ wireguard_servers_list.json.rows | default([]) | selectattr('name', 'equalto', wireguard_vpn.name) | list | first | default(none) }}"
+  tags: [wireguard]
+
+- name: Créer le serveur WireGuard s'il n'existe pas
+  ansible.builtin.uri:
+    url: "{{ opnsense_url }}/api/wireguard/server/addServer"
+    method: POST
+    url_username: "{{ opnsense_api_key }}"
+    url_password: "{{ opnsense_api_secret }}"
+    force_basic_auth: yes
+    validate_certs: "{{ opnsense_verify_ssl }}"
+    body_format: json
+    body:
+      server:
+        enabled: "{{ '1' if wireguard_vpn.enabled else '0' }}"
+        name: "{{ wireguard_vpn.name }}"
+        pubkey: ""  # Sera généré automatiquement par OPNsense
+        privkey: ""  # Sera généré automatiquement par OPNsense
+        port: "{{ wireguard_vpn.port }}"
+        mtu: "{{ wireguard_vpn.mtu | default(1420) }}"
+        dns: "{{ wireguard_vpn.dns | default('') }}"
+        tunneladdress: "{{ wireguard_vpn.server_ip }}/{{ wireguard_vpn.network.split('/')[1] }}"
+        disableroutes: "0"
+        gateway: ""
+    return_content: yes
+  register: wg_server_create
+  when: existing_wg_server is none
+  tags: [wireguard]
+
+- name: Mettre à jour le serveur WireGuard s'il existe
+  ansible.builtin.uri:
+    url: "{{ opnsense_url }}/api/wireguard/server/setServer/{{ existing_wg_server.uuid }}"
+    method: POST
+    url_username: "{{ opnsense_api_key }}"
+    url_password: "{{ opnsense_api_secret }}"
+    force_basic_auth: yes
+    validate_certs: "{{ opnsense_verify_ssl }}"
+    body_format: json
+    body:
+      server:
+        enabled: "{{ '1' if wireguard_vpn.enabled else '0' }}"
+        name: "{{ wireguard_vpn.name }}"
+        port: "{{ wireguard_vpn.port }}"
+        mtu: "{{ wireguard_vpn.mtu | default(1420) }}"
+        dns: "{{ wireguard_vpn.dns | default('') }}"
+        tunneladdress: "{{ wireguard_vpn.server_ip }}/{{ wireguard_vpn.network.split('/')[1] }}"
+        disableroutes: "0"
+        gateway: ""
+        peers: "{{ existing_wg_server.peers | default('') }}"  # Préserver la liste des peers
+    return_content: yes
+  register: wg_server_update
+  when: existing_wg_server is not none
+  tags: [wireguard]
+
+- name: Récupérer à nouveau le serveur pour obtenir l'UUID
+  ansible.builtin.uri:
+    url: "{{ opnsense_url }}/api/wireguard/server/searchServer"
+    method: GET
+    url_username: "{{ opnsense_api_key }}"
+    url_password: "{{ opnsense_api_secret }}"
+    force_basic_auth: yes
+    validate_certs: "{{ opnsense_verify_ssl }}"
+    return_content: yes
+  register: wireguard_servers_updated
+  when: wg_server_create is defined and wg_server_create.changed
+  tags: [wireguard]
+
+- name: Mettre à jour existing_wg_server avec le nouveau serveur créé
+  ansible.builtin.set_fact:
+    existing_wg_server: "{{ wireguard_servers_updated.json.rows | default([]) | selectattr('name', 'equalto', wireguard_vpn.name) | list | first }}"
+  when: wg_server_create is defined and wg_server_create.changed
+  tags: [wireguard]
+
+- name: Appliquer les changements WireGuard
+  ansible.builtin.uri:
+    url: "{{ opnsense_url }}/api/wireguard/service/reconfigure"
+    method: POST
+    url_username: "{{ opnsense_api_key }}"
+    url_password: "{{ opnsense_api_secret }}"
+    force_basic_auth: yes
+    validate_certs: "{{ opnsense_verify_ssl }}"
+    return_content: yes
+  when: (wg_server_create is defined and wg_server_create.changed) or (wg_server_update is defined and wg_server_update.changed)
+  tags: [wireguard]
+
+- name: Afficher l'état du serveur WireGuard
+  ansible.builtin.debug:
+    msg: |
+      {% if wg_server_create is defined and wg_server_create.changed %}
+      ✅ Serveur WireGuard '{{ wireguard_vpn.name }}' créé avec succès
+      {% elif wg_server_update is defined and wg_server_update.changed %}
+      ✅ Serveur WireGuard '{{ wireguard_vpn.name }}' mis à jour
+      {% else %}
+      ℹ️  Serveur WireGuard '{{ wireguard_vpn.name }}' déjà à jour
+      {% endif %}
+        - Port: {{ wireguard_vpn.port }}
+        - IP Tunnel: {{ wireguard_vpn.server_ip }}/{{ wireguard_vpn.network.split('/')[1] }}
+        - MTU: {{ wireguard_vpn.mtu | default(1420) }}
+  tags: [wireguard]
+
+- name: Récupérer les peers WireGuard configurés
+  ansible.builtin.uri:
+    url: "{{ opnsense_url }}/api/wireguard/client/searchClient"
+    method: GET
+    url_username: "{{ opnsense_api_key }}"
+    url_password: "{{ opnsense_api_secret }}"
+    force_basic_auth: yes
+    validate_certs: "{{ opnsense_verify_ssl }}"
+    return_content: yes
+  register: wireguard_peers_list
+  tags: [wireguard]
+
+- name: Gérer les peers WireGuard
+  ansible.builtin.include_tasks: wireguard_peer.yml
+  loop: "{{ wireguard_vpn.peers | default([]) }}"
+  loop_control:
+    loop_var: peer
+  when: wireguard_vpn.peers is defined and wireguard_vpn.peers | length > 0
+  tags: [wireguard]
+
+- name: Récupérer les peers finaux pour collecter leurs UUIDs
+  ansible.builtin.uri:
+    url: "{{ opnsense_url }}/api/wireguard/client/searchClient"
+    method: GET
+    url_username: "{{ opnsense_api_key }}"
+    url_password: "{{ opnsense_api_secret }}"
+    force_basic_auth: yes
+    validate_certs: "{{ opnsense_verify_ssl }}"
+    return_content: yes
+  register: wireguard_peers_updated
+  when: wireguard_vpn.peers is defined and wireguard_vpn.peers | length > 0
+  tags: [wireguard]
+
+- name: Construire la liste des UUIDs des peers
+  ansible.builtin.set_fact:
+    peer_uuids: "{{ wireguard_peers_updated.json.rows | map(attribute='uuid') | join(',') }}"
+  when: wireguard_vpn.peers is defined and wireguard_vpn.peers | length > 0
+  tags: [wireguard]
+
+- name: Mettre à jour le serveur avec la liste des peers
+  ansible.builtin.uri:
+    url: "{{ opnsense_url }}/api/wireguard/server/setServer/{{ existing_wg_server.uuid }}"
+    method: POST
+    url_username: "{{ opnsense_api_key }}"
+    url_password: "{{ opnsense_api_secret }}"
+    force_basic_auth: yes
+    validate_certs: "{{ opnsense_verify_ssl }}"
+    body_format: json
+    body:
+      server:
+        enabled: "{{ '1' if wireguard_vpn.enabled else '0' }}"
+        name: "{{ wireguard_vpn.name }}"
+        port: "{{ wireguard_vpn.port }}"
+        mtu: "{{ wireguard_vpn.mtu | default(1420) }}"
+        dns: "{{ wireguard_vpn.dns | default('') }}"
+        tunneladdress: "{{ wireguard_vpn.server_ip }}/{{ wireguard_vpn.network.split('/')[1] }}"
+        disableroutes: "0"
+        gateway: ""
+        peers: "{{ peer_uuids }}"
+    return_content: yes
+  when: wireguard_vpn.peers is defined and wireguard_vpn.peers | length > 0
+  tags: [wireguard]
+
+- name: Appliquer les changements des peers
+  ansible.builtin.uri:
+    url: "{{ opnsense_url }}/api/wireguard/service/reconfigure"
+    method: POST
+    url_username: "{{ opnsense_api_key }}"
+    url_password: "{{ opnsense_api_secret }}"
+    force_basic_auth: yes
+    validate_certs: "{{ opnsense_verify_ssl }}"
+    return_content: yes
+  when: wireguard_vpn.peers is defined and wireguard_vpn.peers | length > 0
+  tags: [wireguard]
+
+- name: Récupérer les peers finaux
+  ansible.builtin.uri:
+    url: "{{ opnsense_url }}/api/wireguard/client/searchClient"
+    method: GET
+    url_username: "{{ opnsense_api_key }}"
+    url_password: "{{ opnsense_api_secret }}"
+    force_basic_auth: yes
+    validate_certs: "{{ opnsense_verify_ssl }}"
+    return_content: yes
+  register: wireguard_peers_final
+  tags: [wireguard]
+
+- name: Afficher le résumé de la configuration WireGuard
+  ansible.builtin.debug:
+    msg: |
+      ====================================================================
+      Configuration WireGuard - Résumé
+      ====================================================================
+
+      Serveur: {{ wireguard_vpn.name }}
+      Réseau VPN: {{ wireguard_vpn.network }}
+      Port: {{ wireguard_vpn.port }}
+      IP Serveur: {{ wireguard_vpn.server_ip }}
+
+      Peers configurés: {{ wireguard_peers_final.json.rows | default([]) | length }}
+      {% if wireguard_peers_final.json.rows | default([]) | length > 0 %}
+      {% for peer in wireguard_peers_final.json.rows %}
+        - {{ peer.name }} ({{ peer.tunneladdress }}) - {{ 'Activé' if peer.enabled == '1' else 'Désactivé' }}
+      {% endfor %}
+      {% endif %}
+
+      Réseaux accessibles via VPN:
+      {% for network in wireguard_vpn.allowed_networks %}
+        - {{ network }}
+      {% endfor %}
+
+      ====================================================================
+  tags: [wireguard]
