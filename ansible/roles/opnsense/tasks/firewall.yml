@@ -1,7 +1,219 @@
 ---
 # Configuration des règles firewall OPNsense
-# TODO: À implémenter après les tests initiaux
+# Gère les règles NAT Outbound et les règles de filtrage pour WireGuard
 
-- name: Placeholder - Firewall rules
+# =============================================================================
+# NAT OUTBOUND - Permettre au VPN d'accéder à Internet
+# =============================================================================
+
+- name: Récupérer les règles NAT Outbound existantes
+  ansible.builtin.uri:
+    url: "{{ opnsense_url }}/api/firewall/source_nat/searchRule"
+    method: GET
+    url_username: "{{ opnsense_api_key }}"
+    url_password: "{{ opnsense_api_secret }}"
+    force_basic_auth: yes
+    validate_certs: "{{ opnsense_verify_ssl }}"
+    return_content: yes
+  register: nat_outbound_rules
+  tags: [firewall]
+
+- name: Vérifier si la règle NAT pour WireGuard existe
+  ansible.builtin.set_fact:
+    existing_vpn_nat: "{{ nat_outbound_rules.json.rows | default([]) | selectattr('descr', 'defined') | selectattr('descr', 'equalto', 'NAT for WireGuard VPN clients') | list | first | default(none) }}"
+  tags: [firewall]
+
+- name: Créer la règle NAT Outbound pour WireGuard
+  ansible.builtin.uri:
+    url: "{{ opnsense_url }}/api/firewall/source_nat/addRule"
+    method: POST
+    url_username: "{{ opnsense_api_key }}"
+    url_password: "{{ opnsense_api_secret }}"
+    force_basic_auth: yes
+    validate_certs: "{{ opnsense_verify_ssl }}"
+    body_format: json
+    body:
+      rule:
+        enabled: "1"
+        interface: wan
+        source: "{{ wireguard_vpn.network }}"
+        target: ""
+        descr: "NAT for WireGuard VPN clients"
+    return_content: yes
+  when: existing_vpn_nat is none
+  register: nat_rule_created
+  tags: [firewall]
+
+- name: Appliquer les changements NAT
+  ansible.builtin.uri:
+    url: "{{ opnsense_url }}/api/firewall/filter/apply"
+    method: POST
+    url_username: "{{ opnsense_api_key }}"
+    url_password: "{{ opnsense_api_secret }}"
+    force_basic_auth: yes
+    validate_certs: "{{ opnsense_verify_ssl }}"
+    return_content: yes
+  when: nat_rule_created is defined and nat_rule_created.changed
+  tags: [firewall]
+
+# =============================================================================
+# RÈGLES FIREWALL - WAN
+# =============================================================================
+
+- name: Récupérer les règles firewall WAN existantes
+  ansible.builtin.uri:
+    url: "{{ opnsense_url }}/api/firewall/filter/searchRule"
+    method: GET
+    url_username: "{{ opnsense_api_key }}"
+    url_password: "{{ opnsense_api_secret }}"
+    force_basic_auth: yes
+    validate_certs: "{{ opnsense_verify_ssl }}"
+    return_content: yes
+  register: wan_rules
+  tags: [firewall]
+
+- name: Vérifier si la règle WAN pour WireGuard existe
+  ansible.builtin.set_fact:
+    existing_wan_wg_rule: "{{ wan_rules.json.rows | default([]) | selectattr('descr', 'defined') | selectattr('descr', 'search', 'WireGuard.*51820') | list | first | default(none) }}"
+  tags: [firewall]
+
+- name: Créer la règle WAN pour autoriser WireGuard
+  ansible.builtin.uri:
+    url: "{{ opnsense_url }}/api/firewall/filter/addRule"
+    method: POST
+    url_username: "{{ opnsense_api_key }}"
+    url_password: "{{ opnsense_api_secret }}"
+    force_basic_auth: yes
+    validate_certs: "{{ opnsense_verify_ssl }}"
+    body_format: json
+    body:
+      rule:
+        enabled: "1"
+        type: pass
+        interface: wan
+        direction: in
+        ipprotocol: inet
+        protocol: udp
+        source: any
+        destination: "(self)"
+        destination_port: "{{ wireguard_vpn.port }}"
+        descr: "Allow WireGuard VPN (UDP {{ wireguard_vpn.port }})"
+        quick: "1"
+    return_content: yes
+  when: existing_wan_wg_rule is none
+  register: wan_rule_created
+  tags: [firewall]
+
+# =============================================================================
+# RÈGLES FIREWALL - WIREGUARD
+# =============================================================================
+
+- name: Vérifier si les règles WireGuard existent
+  ansible.builtin.set_fact:
+    existing_wg_lan_rule: "{{ wan_rules.json.rows | default([]) | selectattr('descr', 'defined') | selectattr('descr', 'equalto', 'Allow VPN to LAN') | list | first | default(none) }}"
+    existing_wg_internet_rule: "{{ wan_rules.json.rows | default([]) | selectattr('descr', 'defined') | selectattr('descr', 'equalto', 'Allow VPN clients to access LAN and Internet') | list | first | default(none) }}"
+  tags: [firewall]
+
+- name: Créer la règle WireGuard pour accès au LAN
+  ansible.builtin.uri:
+    url: "{{ opnsense_url }}/api/firewall/filter/addRule"
+    method: POST
+    url_username: "{{ opnsense_api_key }}"
+    url_password: "{{ opnsense_api_secret }}"
+    force_basic_auth: yes
+    validate_certs: "{{ opnsense_verify_ssl }}"
+    body_format: json
+    body:
+      rule:
+        enabled: "1"
+        type: pass
+        interface: wireguard
+        ipprotocol: inet
+        protocol: any
+        source: any
+        destination: "{{ network.lan.network }}"
+        descr: "Allow VPN to LAN"
+    return_content: yes
+  when: existing_wg_lan_rule is none
+  register: wg_lan_rule_created
+  tags: [firewall]
+
+- name: Créer la règle WireGuard pour accès Internet
+  ansible.builtin.uri:
+    url: "{{ opnsense_url }}/api/firewall/filter/addRule"
+    method: POST
+    url_username: "{{ opnsense_api_key }}"
+    url_password: "{{ opnsense_api_secret }}"
+    force_basic_auth: yes
+    validate_certs: "{{ opnsense_verify_ssl }}"
+    body_format: json
+    body:
+      rule:
+        enabled: "1"
+        type: pass
+        interface: wireguard
+        ipprotocol: inet
+        protocol: any
+        source: any
+        destination: any
+        descr: "Allow VPN clients to access LAN and Internet"
+    return_content: yes
+  when: existing_wg_internet_rule is none
+  register: wg_internet_rule_created
+  tags: [firewall]
+
+# =============================================================================
+# APPLIQUER LES CHANGEMENTS
+# =============================================================================
+
+- name: Appliquer les changements firewall
+  ansible.builtin.uri:
+    url: "{{ opnsense_url }}/api/firewall/filter/apply"
+    method: POST
+    url_username: "{{ opnsense_api_key }}"
+    url_password: "{{ opnsense_api_secret }}"
+    force_basic_auth: yes
+    validate_certs: "{{ opnsense_verify_ssl }}"
+    return_content: yes
+  when: >
+    (wan_rule_created is defined and wan_rule_created.changed) or
+    (wg_lan_rule_created is defined and wg_lan_rule_created.changed) or
+    (wg_internet_rule_created is defined and wg_internet_rule_created.changed)
+  tags: [firewall]
+
+- name: Afficher le résumé des règles firewall
   ansible.builtin.debug:
-    msg: "Configuration firewall à implémenter"
+    msg: |
+      ====================================================================
+      Configuration Firewall - Résumé
+      ====================================================================
+
+      NAT Outbound:
+      {% if nat_rule_created is defined and nat_rule_created.changed %}
+      ✅ Règle NAT créée pour {{ wireguard_vpn.network }}
+      {% else %}
+      ℹ️  Règle NAT déjà configurée
+      {% endif %}
+
+      Règles WAN:
+      {% if wan_rule_created is defined and wan_rule_created.changed %}
+      ✅ Règle créée: Allow WireGuard UDP {{ wireguard_vpn.port }}
+      {% else %}
+      ℹ️  Règle WAN WireGuard déjà configurée
+      {% endif %}
+
+      Règles WireGuard Interface:
+      {% if wg_lan_rule_created is defined and wg_lan_rule_created.changed %}
+      ✅ Règle créée: Allow VPN to LAN
+      {% else %}
+      ℹ️  Règle VPN → LAN déjà configurée
+      {% endif %}
+
+      {% if wg_internet_rule_created is defined and wg_internet_rule_created.changed %}
+      ✅ Règle créée: Allow VPN to Internet
+      {% else %}
+      ℹ️  Règle VPN → Internet déjà configurée
+      {% endif %}
+
+      ====================================================================
+  tags: [firewall]
