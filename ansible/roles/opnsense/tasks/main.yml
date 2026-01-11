@@ -13,9 +13,9 @@
   register: opnsense_status
   changed_when: false
 
-- name: Afficher la version OPNsense
+- name: Afficher la connexion OPNsense
   ansible.builtin.debug:
-    msg: "OPNsense {{ opnsense_status.json.product_version }} connecté avec succès"
+    msg: "✅ Connexion à OPNsense établie avec succès"
 
 - name: Backup de la configuration actuelle
   ansible.builtin.include_tasks: backup.yml
