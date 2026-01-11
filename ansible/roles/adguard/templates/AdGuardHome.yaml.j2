@@ -106,6 +106,7 @@ tls:
   strict_sni_check: false
 
 filters:
+  # Blocage publicitaire
   - enabled: true
     url: https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt
     name: AdGuard DNS filter
@@ -114,6 +115,58 @@ filters:
     url: https://adaway.org/hosts.txt
     name: AdAway Default Blocklist
     id: 2
+  - enabled: true
+    url: https://easylist.to/easylist/easylist.txt
+    name: EasyList
+    id: 3
+  - enabled: true
+    url: https://easylist.to/easylist/easyprivacy.txt
+    name: EasyPrivacy
+    id: 4
+  - enabled: true
+    url: https://easylist.to/easylist/fanboy-annoyance.txt
+    name: Fanboy Annoyances
+    id: 5
+
+  # Protection avancée
+  - enabled: true
+    url: https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+    name: Steven Black Unified Hosts
+    id: 6
+  - enabled: true
+    url: https://urlhaus.abuse.ch/downloads/hostfile/
+    name: URLhaus Malware
+    id: 7
+  - enabled: true
+    url: https://phishing.army/download/phishing_army_blocklist_extended.txt
+    name: Phishing Army
+    id: 8
+
+  # France
+  - enabled: true
+    url: https://easylist.to/easylist/liste_fr.txt
+    name: EasyList French
+    id: 9
+
+  # Contenu adulte (désactivé par défaut, activé par groupe)
+  - enabled: false
+    url: https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/pro.txt
+    name: Hagezi Pro - Adult Content
+    id: 10
+
+  # Réseaux sociaux (désactivé par défaut, activé par groupe)
+  - enabled: false
+    url: https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/native.tiktok.txt
+    name: Block TikTok
+    id: 11
+  - enabled: false
+    url: https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/native.instagram.txt
+    name: Block Instagram
+    id: 12
+  - enabled: false
+    url: https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/native.facebook.txt
+    name: Block Facebook
+    id: 13
 
 whitelist_filters: []
 
@@ -144,7 +197,102 @@ clients:
     rdns: true
     dhcp: true
     hosts: true
-  persistent: []
+  persistent:
+    # WiFi-Admin (192.168.2.0/24) - Filtrage léger
+    - name: WiFi-Admin
+      tags: []
+      ids:
+        - 192.168.2.0/24
+      use_global_settings: false
+      filtering_enabled: true
+      parental_enabled: false
+      safebrowsing_enabled: true
+      safesearch:
+        enabled: false
+      use_global_blocked_services: true
+      blocked_services:
+        schedule:
+          time_zone: Europe/Paris
+      upstreams: []
+
+    # WiFi-Home (192.168.3.0/24) - Filtrage famille (adulte)
+    - name: WiFi-Home
+      tags: []
+      ids:
+        - 192.168.3.0/24
+      use_global_settings: false
+      filtering_enabled: true
+      parental_enabled: true
+      safebrowsing_enabled: true
+      safesearch:
+        enabled: true
+      use_global_blocked_services: false
+      blocked_services:
+        schedule:
+          time_zone: Europe/Paris
+      upstreams: []
+
+    # WiFi-IoT (192.168.4.0/24) - Filtrage minimal
+    - name: WiFi-IoT
+      tags: []
+      ids:
+        - 192.168.4.0/24
+      use_global_settings: false
+      filtering_enabled: true
+      parental_enabled: false
+      safebrowsing_enabled: true
+      safesearch:
+        enabled: false
+      use_global_blocked_services: true
+      blocked_services:
+        schedule:
+          time_zone: Europe/Paris
+      upstreams: []
+
+    # WiFi-Enfants (192.168.5.0/24) - Filtrage strict
+    - name: WiFi-Enfants
+      tags: []
+      ids:
+        - 192.168.5.0/24
+      use_global_settings: false
+      filtering_enabled: true
+      parental_enabled: true
+      safebrowsing_enabled: true
+      safesearch:
+        enabled: true
+      use_global_blocked_services: false
+      blocked_services:
+        ids:
+          - tiktok
+          - instagram
+          - facebook
+          - snapchat
+          - twitter
+          - youtube
+        schedule:
+          time_zone: Europe/Paris
+          sun:
+            start: 0h0m
+            end: 23h59m
+          mon:
+            start: 0h0m
+            end: 23h59m
+          tue:
+            start: 0h0m
+            end: 23h59m
+          wed:
+            start: 0h0m
+            end: 23h59m
+          thu:
+            start: 0h0m
+            end: 23h59m
+          fri:
+            start: 0h0m
+            end: 23h59m
+          sat:
+            start: 0h0m
+            end: 23h59m
+      upstreams: []
 
 log_compress: false
 log_localtime: false
