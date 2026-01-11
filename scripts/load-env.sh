@@ -49,7 +49,8 @@ if [ -n "$OPNSENSE_API_KEY" ] && [ -n "$OPNSENSE_API_SECRET" ]; then
     echo "✓ Credentials OPNsense chargés"
 fi
 
-# Exporter le token API pour Terraform
+# Exporter les variables pour Terraform
 export TF_VAR_proxmox_api_token="$PVE_API_TOKEN"
+export TF_VAR_lxc_root_password="$LXC_ROOT_PASSWORD"
 
 echo "✓ Variables d'environnement chargées"

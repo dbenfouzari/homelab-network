@@ -1,0 +1,11 @@
+---
+# Handlers pour le rôle AdGuard Home
+
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: yes
+
+- name: Restart AdGuard Home
+  ansible.builtin.systemd:
+    name: adguardhome
+    state: restarted

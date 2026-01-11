@@ -1,0 +1,13 @@
+---
+# Inventaire AdGuard Home
+# Ce fichier définit le container AdGuard pour Ansible
+
+all:
+  children:
+    dns_servers:
+      hosts:
+        adguard:
+          ansible_host: 192.168.2.53
+          ansible_user: root
+          ansible_password: "{{ lookup('env', 'LXC_ROOT_PASSWORD') }}"
+          ansible_python_interpreter: /usr/bin/python3

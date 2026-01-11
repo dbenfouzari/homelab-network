@@ -1,0 +1,11 @@
+---
+# Variables par défaut pour le rôle AdGuard Home
+
+# Configuration réseau
+adguard_bind_host: 192.168.2.53
+adguard_bind_port: 80
+adguard_opnsense_dns: 192.168.2.254
+
+# Credentials (à surcharger via variables d'environnement)
+adguard_username: "{{ lookup('env', 'ADGUARD_USERNAME') | default('admin', true) }}"
+adguard_password: "{{ lookup('env', 'ADGUARD_PASSWORD') }}"

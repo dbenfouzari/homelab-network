@@ -1,0 +1,102 @@
+---
+# Point d'entrée principal du rôle AdGuard Home
+# Installe et configure AdGuard Home sur un container LXC Debian
+
+- name: Mettre à jour le cache APT
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Installer les dépendances
+  ansible.builtin.apt:
+    name:
+      - curl
+      - ca-certificates
+      - python3-bcrypt
+    state: present
+
+- name: Vérifier si AdGuard Home est déjà installé
+  ansible.builtin.stat:
+    path: /opt/AdGuardHome/AdGuardHome
+  register: adguard_binary
+
+- name: Télécharger AdGuard Home
+  ansible.builtin.get_url:
+    url: "https://static.adguard.com/adguardhome/release/AdGuardHome_linux_amd64.tar.gz"
+    dest: /tmp/AdGuardHome.tar.gz
+    mode: '0644'
+  when: not adguard_binary.stat.exists
+
+- name: Extraire AdGuard Home
+  ansible.builtin.unarchive:
+    src: /tmp/AdGuardHome.tar.gz
+    dest: /opt/
+    remote_src: yes
+  when: not adguard_binary.stat.exists
+
+- name: Générer le hash bcrypt du mot de passe AdGuard
+  ansible.builtin.set_fact:
+    adguard_password_hash: "{{ adguard_password | password_hash('bcrypt') }}"
+  no_log: true
+
+- name: Déployer la configuration AdGuard Home
+  ansible.builtin.template:
+    src: AdGuardHome.yaml.j2
+    dest: /opt/AdGuardHome/AdGuardHome.yaml
+    owner: root
+    group: root
+    mode: '0600'
+  notify: Restart AdGuard Home
+
+- name: Créer le service systemd pour AdGuard Home
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/adguardhome.service
+    content: |
+      [Unit]
+      Description=AdGuard Home
+      After=network.target
+
+      [Service]
+      Type=simple
+      WorkingDirectory=/opt/AdGuardHome
+      ExecStart=/opt/AdGuardHome/AdGuardHome -s run
+      Restart=always
+      RestartSec=10
+
+      [Install]
+      WantedBy=multi-user.target
+    mode: '0644'
+  notify: Reload systemd
+
+- name: Activer et démarrer AdGuard Home
+  ansible.builtin.systemd:
+    name: adguardhome
+    enabled: yes
+    state: started
+    daemon_reload: yes
+
+- name: Afficher les informations de connexion
+  ansible.builtin.debug:
+    msg: |
+      ====================================================================
+      AdGuard Home installé et configuré avec succès !
+      ====================================================================
+
+      Interface Web : http://{{ adguard_bind_host }}
+
+      Credentials :
+      - Username: {{ adguard_username }}
+      - Password: (voir variable ADGUARD_PASSWORD dans .env)
+
+      Configuration DNS :
+      - Port DNS: 53
+      - Interface: {{ adguard_bind_host }}
+      - Upstream DNS: Cloudflare (1.1.1.1) + OPNsense ({{ adguard_opnsense_dns }})
+      - Filtres: AdGuard DNS filter, AdAway Blocklist
+
+      Prochaines étapes :
+      - Se connecter à l'interface web
+      - Configurer OPNsense DHCP pour pointer vers {{ adguard_bind_host }}
+      - Tester la résolution DNS depuis un client
+
+      ====================================================================

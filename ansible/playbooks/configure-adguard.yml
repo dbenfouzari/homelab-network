@@ -1,0 +1,12 @@
+---
+# Playbook de configuration AdGuard Home
+# Installe et configure AdGuard Home sur le container LXC
+
+- name: Configuration AdGuard Home
+  hosts: adguard
+  become: yes
+  gather_facts: yes
+
+  roles:
+    - role: adguard
+      tags: dns
