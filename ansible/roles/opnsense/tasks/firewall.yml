@@ -130,7 +130,7 @@
         interface: wireguard
         ipprotocol: inet
         protocol: any
-        source: any
+        source: "{{ wireguard_vpn.network }}"
         destination: "{{ network.lan.network }}"
         descr: "Allow VPN to LAN"
     return_content: yes
@@ -154,8 +154,9 @@
         interface: wireguard
         ipprotocol: inet
         protocol: any
-        source: any
+        source: "{{ wireguard_vpn.network }}"
         destination: any
+        gateway: WAN_DHCP
         descr: "Allow VPN clients to access LAN and Internet"
     return_content: yes
   when: existing_wg_internet_rule is none

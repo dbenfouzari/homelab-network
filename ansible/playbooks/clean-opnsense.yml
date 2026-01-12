@@ -1,0 +1,114 @@
+---
+# Playbook de nettoyage complet OPNsense
+# Supprime toute la configuration WireGuard et firewall
+#
+# Usage:
+#   ansible-playbook -i inventory/opnsense.yml playbooks/clean-opnsense.yml
+
+- name: Nettoyage complet de la configuration OPNsense
+  hosts: opnsense
+  gather_facts: false
+
+  tasks:
+    - name: Backup avant nettoyage
+      ansible.builtin.include_role:
+        name: opnsense
+        tasks_from: backup
+      tags: [backup]
+
+    - name: Récupérer toutes les règles firewall
+      ansible.builtin.uri:
+        url: "{{ opnsense_url }}/api/firewall/filter/searchRule"
+        method: GET
+        url_username: "{{ opnsense_api_key }}"
+        url_password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+        return_content: yes
+      register: all_firewall_rules
+
+    - name: Supprimer toutes les règles WireGuard (interface wireguard)
+      ansible.builtin.uri:
+        url: "{{ opnsense_url }}/api/firewall/filter/delRule/{{ item.uuid }}"
+        method: POST
+        url_username: "{{ opnsense_api_key }}"
+        url_password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+        return_content: yes
+      loop: "{{ all_firewall_rules.json.rows | default([]) | selectattr('interface', 'defined') | selectattr('interface', 'equalto', 'wireguard') | list }}"
+      loop_control:
+        label: "{{ item.descr | default('No description') }}"
+      register: deleted_wg_rules
+
+    - name: Récupérer toutes les règles NAT Outbound
+      ansible.builtin.uri:
+        url: "{{ opnsense_url }}/api/firewall/source_nat/searchRule"
+        method: GET
+        url_username: "{{ opnsense_api_key }}"
+        url_password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+        return_content: yes
+      register: all_nat_rules
+
+    - name: Supprimer toutes les règles NAT pour WireGuard
+      ansible.builtin.uri:
+        url: "{{ opnsense_url }}/api/firewall/source_nat/delRule/{{ item.uuid }}"
+        method: POST
+        url_username: "{{ opnsense_api_key }}"
+        url_password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+        return_content: yes
+      loop: "{{ all_nat_rules.json.rows | default([]) | selectattr('descr', 'defined') | selectattr('descr', 'search', 'WireGuard') | list }}"
+      loop_control:
+        label: "{{ item.descr | default('No description') }}"
+      register: deleted_nat_rules
+
+    - name: Récupérer toutes les règles WAN
+      ansible.builtin.set_fact:
+        wan_wg_rules: "{{ all_firewall_rules.json.rows | default([]) | selectattr('interface', 'defined') | selectattr('interface', 'equalto', 'wan') | selectattr('descr', 'defined') | selectattr('descr', 'search', 'WireGuard') | list }}"
+
+    - name: Supprimer les règles WAN pour WireGuard
+      ansible.builtin.uri:
+        url: "{{ opnsense_url }}/api/firewall/filter/delRule/{{ item.uuid }}"
+        method: POST
+        url_username: "{{ opnsense_api_key }}"
+        url_password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+        return_content: yes
+      loop: "{{ wan_wg_rules }}"
+      loop_control:
+        label: "{{ item.descr | default('No description') }}"
+      register: deleted_wan_rules
+
+    - name: Appliquer les changements firewall
+      ansible.builtin.uri:
+        url: "{{ opnsense_url }}/api/firewall/filter/apply"
+        method: POST
+        url_username: "{{ opnsense_api_key }}"
+        url_password: "{{ opnsense_api_secret }}"
+        force_basic_auth: yes
+        validate_certs: "{{ opnsense_verify_ssl }}"
+        return_content: yes
+
+    - name: Afficher le résumé du nettoyage
+      ansible.builtin.debug:
+        msg: |
+          ====================================================================
+          Nettoyage OPNsense terminé
+          ====================================================================
+
+          Règles WireGuard supprimées: {{ deleted_wg_rules.results | selectattr('changed', 'equalto', true) | list | length }}
+          Règles NAT supprimées: {{ deleted_nat_rules.results | selectattr('changed', 'equalto', true) | list | length }}
+          Règles WAN supprimées: {{ deleted_wan_rules.results | selectattr('changed', 'equalto', true) | list | length }}
+
+          ⚠️  Configuration WireGuard VPN conservée (serveur/peers)
+          ⚠️  Pour tout réinitialiser, restaurez un backup
+
+          Pour reconfigurer:
+            ansible-playbook -i inventory/opnsense.yml playbooks/configure-opnsense.yml
+
+          ====================================================================

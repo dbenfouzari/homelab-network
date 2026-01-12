@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en-US" class="no-js">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="keywords" content="" />
+    <meta name="description" content="" />
+    <meta name="copyright" content="" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+
+    <title>Login | OPNsense</title>
+
+    <link href="/ui/themes/opnsense/build/css/main.css?v=e9eb1168147dc801" rel="stylesheet">
+    <link href="/ui/themes/opnsense/build/images/favicon.png?v=e9eb1168147dc801" rel="shortcut icon">
+
+    <script src="/ui/js/jquery-3.5.1.min.js"></script>
+
+        <script src="/ui/js/theme.js?v=e9eb1168147dc801"></script>
+    
+  
+            <script>
+              $( document ).ready(function() {
+                  $.ajaxSetup({
+                  'beforeSend': function(xhr) {
+                      xhr.setRequestHeader("X-CSRFToken", "xBbPIOauK-4oRScI5NW6qA" );
+                  }
+                });
+              });
+            </script>
+            </head>
+  <body class="page-login">
+
+  <div class="container">
+    <main class="login-modal-container">
+      <header class="login-modal-head" style="height:50px;">
+        <div class="navbar-brand">
+              <img src="/ui/themes/opnsense/build/images/default-logo.svg?v=e9eb1168147dc801" height="30" alt="logo" />
+            </div>
+      </header>
+
+      <div class="login-modal-content">
+        <div id="inputerrors" class="text-danger">&nbsp;</div><br />
+
+            <form class="clearfix" id="iform" name="iform" method="post" autocomplete="off"><input type="hidden" name="rNBGt9Ef4rYqNsh-1HScLQ" value="xBbPIOauK-4oRScI5NW6qA" autocomplete="new-password" />
+
+        <div class="form-group">
+          <label for="usernamefld">Username:</label>
+          <input id="usernamefld" type="text" name="usernamefld" class="form-control user" tabindex="1" autofocus="autofocus" autocapitalize="off" autocorrect="off" />
+        </div>
+
+        <div class="form-group">
+          <label for="passwordfld">Password:</label>
+          <input id="passwordfld" type="password" name="passwordfld" class="form-control pwd" tabindex="2" />
+        </div>
+
+        <button type="submit" name="login" value="1" class="btn btn-primary pull-right">Login</button>
+
+      </form>
+
+
+
+      
+          </div>
+
+      </main>
+      <div class="login-foot text-center">
+        <a target="_blank" href="https://opnsense.org/">OPNsense</a> (c) 2014-2025        <a target="_blank" href="https://www.deciso.com/">Deciso B.V.</a>
+      </div>
+
+    </div>
+
+    </body>
+  </html>
